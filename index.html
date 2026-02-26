@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>PowerBall(동행) 빈도 기반 추천기</title>
-  <meta name="description" content="동행복권 파워볼: 역대 당첨번호 빈도 기반 추천(순수 랜덤 없음). 1/5/10개 추천 + 공유링크 + GitHub Actions 데이터 자동 업데이트." />
+  <title>동행 파워볼 빈도 기반 추천기</title>
+  <meta name="description" content="동행복권 파워볼: 역대 당첨번호 빈도 기반 추천(순수 랜덤 없음). 1/5/10개 추천 + 공유 링크 + GitHub Actions 데이터 자동 업데이트." />
   <style>
     :root{
       --bg:#0b1020;
@@ -181,7 +181,7 @@
       <div class="pillbar">
         <div class="pill"><span class="dot good"></span><span id="p-status">데이터 확인 중…</span></div>
         <div class="pill"><span class="dot warn"></span><span id="p-updated">업데이트: -</span></div>
-        <div class="pill"><span class="dot bad"></span><a href="https://www.dhlottery.co.kr/srfllt/pbGmInfo" target="_blank" rel="noopener">공식 안내 링크</a></div>
+        <div class="pill"><span class="dot bad"></span><a href="https://www.dhlottery.co.kr/srfllt/pbGmInfo" target="_blank" rel="noopener">공식 안내</a></div>
       </div>
     </header>
 
@@ -248,7 +248,7 @@
             </div>
             <div class="kpi" style="min-width:unset;flex:1">
               <div class="k">집계 기준</div>
-              <div class="v">최근 데이터 전체</div>
+              <div class="v">data 전체</div>
             </div>
           </div>
 
@@ -257,7 +257,7 @@
           <div class="list" id="top-power"></div>
 
           <div class="foot">
-            색상 가이드(일반볼): 1~7(노랑) / 8~14(파랑) / 15~21(빨강) / 22~28(초록), 파워볼(보라)
+            색상(일반볼): 1~7(노랑) / 8~14(파랑) / 15~21(빨강) / 22~28(초록), 파워볼(보라)
           </div>
         </div>
       </aside>
@@ -267,8 +267,9 @@
   <div class="toast" id="toast"></div>
 
 <script>
-  const DATA_FREQ = "data/powerball_freq.json";
-  const DATA_DRAWS = "data/powerball_draws.json";
+  // ✅ index.html이 /power-c/ 아래라서, 데이터는 ../data/ 로 접근
+  const DATA_FREQ  = "../data/powerball_freq.json";
+  const DATA_DRAWS = "../data/powerball_draws.json";
 
   const $ = (q) => document.querySelector(q);
 
@@ -301,7 +302,6 @@
   }
 
   function stableHash(str){
-    // 간단 해시(결정적, 랜덤 아님)
     let h = 2166136261;
     for(let i=0;i<str.length;i++){
       h ^= str.charCodeAt(i);
@@ -325,10 +325,10 @@
 
   function buildRecommendations(freq, nSets, cycle){
     const normalFreq = freq?.normal?.freq || {};
-    const powerFreq = freq?.power?.freq || {};
+    const powerFreq  = freq?.power?.freq  || {};
 
     const normalNums = Array.from({length: 28}, (_,i)=> i+1);
-    const powerNums = Array.from({length: 10}, (_,i)=> i);
+    const powerNums  = Array.from({length: 10}, (_,i)=> i);
 
     const normalSorted = normalNums.sort((a,b)=>{
       const fa = normalFreq[a]||0;
@@ -343,26 +343,24 @@
       return a-b;
     });
 
-    // 상/중/하 버킷(빈도 순 기준)
+    // 상/중/하 (빈도 순 기준)
     const high = normalSorted.slice(0, 10);
     const mid  = normalSorted.slice(10, 20);
     const low  = normalSorted.slice(20);
 
-    // 시드: 마지막 업데이트 + cycle로 “회전”
+    // ✅ 순수 랜덤 없음: updated_at + draws + cycle 기반 “결정적 회전”
     const seedBase = `${freq?.meta?.updated_at||"0"}|${freq?.meta?.draws||0}|${cycle}`;
     const seed = stableHash(seedBase);
 
     const sets = [];
     for(let i=0;i<nSets;i++){
-      const a = pickDeterministic(high, (seed + i*7) % Math.max(1,high.length), 2);
+      const a = pickDeterministic(high, (seed + i*7)  % Math.max(1,high.length), 2);
       const b = pickDeterministic(mid,  (seed + i*11) % Math.max(1,mid.length), 2);
       const c = pickDeterministic(low,  (seed + i*13) % Math.max(1,low.length), 1);
 
-      // 합쳐서 5개 보장(중복 방지 보정)
       let normals = [...a, ...b, ...c];
       let j = 0;
       while(new Set(normals).size < 5 && j < 50){
-        // 중복 있으면 low에서 한 칸씩 이동해서 채움
         const extra = low[(seed + i*13 + j) % Math.max(1,low.length)];
         normals = Array.from(new Set([...normals, extra]));
         j++;
@@ -371,11 +369,7 @@
 
       const pb = powerSorted[(seed + i*5) % powerSorted.length];
 
-      sets.push({
-        normals,
-        power: pb,
-        rule: "상(2)+중(2)+하(1) 혼합"
-      });
+      sets.push({ normals, power: pb, rule: "상(2)+중(2)+하(1) 혼합" });
     }
     return sets;
   }
@@ -404,7 +398,7 @@
 
   function renderTop(freq){
     const normalFreq = freq?.normal?.freq || {};
-    const powerFreq = freq?.power?.freq || {};
+    const powerFreq  = freq?.power?.freq  || {};
 
     const normalNums = Array.from({length: 28}, (_,i)=> i+1)
       .map(n=>({n, f: normalFreq[n]||0}))
@@ -417,7 +411,8 @@
       .slice(0, 5);
 
     const tn = $("#top-normal");
-    tn.innerHTML = `<div class="item"><b>일반볼 TOP10</b><span class="badge">빈도</span></div>` +
+    tn.innerHTML =
+      `<div class="item"><b>일반볼 TOP10</b><span class="badge">빈도</span></div>` +
       normalNums.map(x=>`
         <div class="item">
           <div style="display:flex;align-items:center;gap:10px">
@@ -429,7 +424,8 @@
       `).join("");
 
     const tp = $("#top-power");
-    tp.innerHTML = `<div class="item"><b>파워볼 TOP5</b><span class="badge">빈도</span></div>` +
+    tp.innerHTML =
+      `<div class="item"><b>파워볼 TOP5</b><span class="badge">빈도</span></div>` +
       powerNums.map(x=>`
         <div class="item">
           <div style="display:flex;align-items:center;gap:10px">
@@ -467,23 +463,16 @@
     $("#k-cycle").textContent = String(cycle);
 
     let freq = null;
-    let draws = null;
 
     try{
-      [freq, draws] = await Promise.all([
-        loadJson(DATA_FREQ),
-        loadJson(DATA_DRAWS)
-      ]);
+      freq = await loadJson(DATA_FREQ);
 
       $("#p-status").textContent = "데이터 로드 완료";
       $("#p-updated").textContent = `업데이트: ${fmtISO(freq?.meta?.updated_at)}`;
       $("#s-draws").textContent = String(freq?.meta?.draws ?? "-");
 
       renderTop(freq);
-
-      const sets = buildRecommendations(freq, count, cycle);
-      renderSets(sets);
-
+      renderSets(buildRecommendations(freq, count, cycle));
       updateUrl(count, cycle);
       localStorage.setItem("pb_cycle", String(cycle));
     }catch(e){
@@ -491,10 +480,10 @@
       $("#p-updated").textContent = "업데이트: -";
       $("#s-draws").textContent = "-";
       $("#top-normal").innerHTML = `
-        <div class="item"><b>데이터 파일이 비어있거나 없음</b><span class="badge">power-c/data/*</span></div>
+        <div class="item"><b>데이터 파일이 비어있거나 없음</b><span class="badge">/data/*</span></div>
         <div class="item" style="color:var(--muted);line-height:1.4">
-          GitHub Actions로 데이터 수집을 먼저 실행해야 추천이 동작해.<br/>
-          아래 워크플로우(update-powerball.yml / issue 트리거)를 추가해두면 자동으로 채워져.
+          GitHub Actions로 데이터를 먼저 업데이트해야 추천이 동작해.<br/>
+          이슈 코멘트로 <b>/update-powerball</b> 을 달면 자동 실행되도록 워크플로우가 포함돼 있어.
         </div>
       `;
       $("#top-power").innerHTML = "";
@@ -510,7 +499,7 @@
       console.warn(e);
     }
 
-    // 버튼 핸들러
+    // 추천 개수 변경
     document.querySelectorAll("button[data-n]").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         const n = Number(btn.getAttribute("data-n"));
@@ -520,8 +509,7 @@
 
         try{
           if(!freq) freq = await loadJson(DATA_FREQ);
-          const sets = buildRecommendations(freq, count, cycle);
-          renderSets(sets);
+          renderSets(buildRecommendations(freq, count, cycle));
           updateUrl(count, cycle);
           toast(`${count}개 추천으로 변경`);
         }catch(e){
@@ -530,6 +518,7 @@
       });
     });
 
+    // 같은 데이터로 다음 조합(회전)
     $("#btn-next").addEventListener("click", async ()=>{
       cycle += 1;
       $("#k-cycle").textContent = String(cycle);
@@ -538,14 +527,14 @@
 
       try{
         if(!freq) freq = await loadJson(DATA_FREQ);
-        const sets = buildRecommendations(freq, count, cycle);
-        renderSets(sets);
+        renderSets(buildRecommendations(freq, count, cycle));
         toast("같은 데이터로 다음 조합");
       }catch(e){
         toast("데이터가 없어. Actions 업데이트가 필요해.");
       }
     });
 
+    // 공유 링크
     $("#btn-copy").addEventListener("click", async ()=>{
       try{
         await navigator.clipboard.writeText(location.href);
