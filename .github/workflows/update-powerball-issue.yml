@@ -32,10 +32,10 @@ jobs:
 
       - name: Debug tree
         run: |
-          echo "== repo root =="
           pwd
           ls -la
-          echo "== power-c dir =="
+          ls -la scripts || true
+          ls -la data || true
           ls -la power-c || true
 
       - name: Setup Node
@@ -43,22 +43,8 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Detect working dir
-        run: |
-          if [ -f "power-c/package.json" ]; then
-            echo "WORKDIR=power-c" >> $GITHUB_ENV
-          else
-            echo "WORKDIR=." >> $GITHUB_ENV
-          fi
-          echo "WORKDIR is $WORKDIR"
-
-      - name: Install deps
-        working-directory: ${{ env.WORKDIR }}
-        run: npm ci || npm install
-
-      - name: Update Powerball data
-        working-directory: ${{ env.WORKDIR }}
-        run: npm run update:powerball
+      - name: Run updater (no npm)
+        run: node scripts/update_powerball.mjs
 
       - name: Commit & push if changed
         id: commit
