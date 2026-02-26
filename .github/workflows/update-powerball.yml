@@ -3,7 +3,6 @@ name: Update Powerball Data (Scheduled)
 on:
   workflow_dispatch:
   schedule:
-    # (KST 12:15 / 18:15 / 24:15) 정도에 맞추려면 UTC로 03:15 / 09:15 / 15:15
     - cron: "15 3 * * *"
     - cron: "15 9 * * *"
     - cron: "15 15 * * *"
@@ -18,17 +17,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Debug tree
+        run: |
+          echo "== repo root =="
+          pwd
+          ls -la
+          echo "== power-c dir =="
+          ls -la power-c || true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install deps (power-c)
-        working-directory: power-c
+      - name: Detect working dir
+        run: |
+          if [ -f "power-c/package.json" ]; then
+            echo "WORKDIR=power-c" >> $GITHUB_ENV
+          else
+            echo "WORKDIR=." >> $GITHUB_ENV
+          fi
+          echo "WORKDIR is $WORKDIR"
+
+      - name: Install deps
+        working-directory: ${{ env.WORKDIR }}
         run: npm ci || npm install
 
       - name: Update Powerball data
-        working-directory: power-c
+        working-directory: ${{ env.WORKDIR }}
         run: npm run update:powerball
 
       - name: Commit & push if changed
