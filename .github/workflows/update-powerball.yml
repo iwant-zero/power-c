@@ -1,0 +1,44 @@
+name: Update Powerball Data (Scheduled)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # (KST 12:15 / 18:15 / 24:15) 정도에 맞추려면 UTC로 03:15 / 09:15 / 15:15
+    - cron: "15 3 * * *"
+    - cron: "15 9 * * *"
+    - cron: "15 15 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps (power-c)
+        working-directory: power-c
+        run: npm ci || npm install
+
+      - name: Update Powerball data
+        working-directory: power-c
+        run: npm run update:powerball
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add data/*.json
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "chore(data): update powerball freq"
+          git push
