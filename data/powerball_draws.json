@@ -5,7 +5,7 @@
     "normal_range": [1, 28],
     "power_range": [0, 9],
     "updated_at": null,
-    "notes": "GitHub Actions가 update_powerball.mjs를 실행하면 draws가 채워집니다."
+    "notes": "GitHub Actions가 scripts/update_powerball.mjs를 실행하면 draws가 채워집니다."
   },
   "draws": []
 }
