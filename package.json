@@ -1,0 +1,8 @@
+{
+  "name": "dhlottery-powerball-frequency-recommender",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "update:powerball": "node ../scripts/update_powerball.mjs"
+  }
+}
