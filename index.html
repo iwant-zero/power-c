@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>PowerBall(동행) 빈도 기반 추천기</title>
+  <meta name="description" content="동행복권 파워볼: 역대 당첨번호 빈도 기반 추천(순수 랜덤 없음). 1/5/10개 추천 + 공유링크 + GitHub Actions 데이터 자동 업데이트." />
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#121a33;
+      --card2:#0f1730;
+      --text:#e8ecff;
+      --muted:#a9b2e6;
+      --line:rgba(255,255,255,.10);
+      --accent:#7c5cff;
+      --good:#34d399;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --shadow: 0 16px 50px rgba(0,0,0,.35);
+      --r:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, "Noto Sans KR", Arial, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(124,92,255,.35), transparent 55%),
+        radial-gradient(1000px 520px at 90% 0%, rgba(52,211,153,.22), transparent 60%),
+        radial-gradient(900px 520px at 40% 120%, rgba(251,191,36,.12), transparent 60%),
+        var(--bg);
+      color:var(--text);
+    }
+    a{color:inherit}
+    .wrap{max-width:1100px;margin:0 auto;padding:18px 14px 48px}
+    header{
+      display:flex;gap:14px;align-items:flex-start;justify-content:space-between;
+      padding:16px 16px 12px;border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border-radius:var(--r); box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .h-title{display:flex;flex-direction:column;gap:6px}
+    .h-title h1{margin:0;font-size:18px;letter-spacing:-.2px}
+    .h-title p{margin:0;color:var(--muted);font-size:13px;line-height:1.4}
+    .pillbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      padding:8px 10px;border-radius:999px;
+      font-size:12px;color:var(--muted);
+      user-select:none;
+    }
+    .dot{width:8px;height:8px;border-radius:50%}
+    .dot.good{background:var(--good)}
+    .dot.warn{background:var(--warn)}
+    .dot.bad{background:var(--bad)}
+    .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}
+    @media (max-width: 920px){.grid{grid-template-columns:1fr}}
+    .card{
+      border:1px solid var(--line);
+      background:rgba(18,26,51,.72);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 14px 10px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      background:linear-gradient(180deg, rgba(255,255,255,.05), transparent);
+    }
+    .card .hd .ttl{font-weight:700;font-size:14px}
+    .card .hd .sub{font-size:12px;color:var(--muted)}
+    .card .bd{padding:12px 14px 14px}
+    .controls{
+      display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
+      padding:12px 14px;border-top:1px solid var(--line);background:rgba(0,0,0,.08)
+    }
+    .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+    button{
+      appearance:none;border:1px solid var(--line);
+      background:rgba(255,255,255,.05); color:var(--text);
+      padding:10px 12px;border-radius:12px;
+      font-weight:700; font-size:13px; cursor:pointer;
+      transition:transform .05s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover{background:rgba(255,255,255,.08)}
+    button:active{transform:translateY(1px)}
+    button.primary{
+      background:linear-gradient(180deg, rgba(124,92,255,.55), rgba(124,92,255,.25));
+      border-color:rgba(124,92,255,.55);
+    }
+    button.ghost{background:transparent}
+    .small{font-size:12px;color:var(--muted)}
+    .sets{display:flex;flex-direction:column;gap:10px}
+    .set{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px 12px;
+      background:rgba(15,23,48,.55);
+    }
+    .set .top{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+      margin-bottom:10px;
+    }
+    .set .label{font-weight:800;font-size:13px}
+    .set .meta{font-size:12px;color:var(--muted);text-align:right}
+    .balls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .ball{
+      width:40px;height:40px;border-radius:999px;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-weight:900; letter-spacing:-.3px;
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow: 0 10px 20px rgba(0,0,0,.22);
+      user-select:none;
+    }
+    .sep{width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,.12);margin:0 2px}
+    .b1{background:linear-gradient(180deg, rgba(251,191,36,.95), rgba(251,191,36,.45)); color:#1c1200}
+    .b2{background:linear-gradient(180deg, rgba(96,165,250,.95), rgba(96,165,250,.45)); color:#06152b}
+    .b3{background:linear-gradient(180deg, rgba(248,113,113,.95), rgba(248,113,113,.45)); color:#240406}
+    .b4{background:linear-gradient(180deg, rgba(52,211,153,.95), rgba(52,211,153,.45)); color:#022016}
+    .pb{background:linear-gradient(180deg, rgba(124,92,255,.95), rgba(124,92,255,.40)); color:#090318}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .kpi{
+      padding:10px 12px;border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      min-width:180px;
+    }
+    .kpi .k{font-size:12px;color:var(--muted)}
+    .kpi .v{font-size:14px;font-weight:900;margin-top:2px}
+    .list{
+      display:flex;flex-direction:column;gap:8px;
+      margin-top:10px;
+    }
+    .item{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:10px 10px;border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      border-radius:12px;
+      font-size:13px;
+    }
+    .badge{
+      font-size:12px;color:var(--muted);
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      padding:6px 8px;border-radius:999px;
+      white-space:nowrap;
+    }
+    .foot{
+      margin-top:14px;color:var(--muted);font-size:12px;line-height:1.45;
+      padding:0 4px;
+    }
+    .toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      background:rgba(10,14,30,.92);
+      border:1px solid rgba(255,255,255,.16);
+      color:var(--text);
+      padding:10px 12px;border-radius:12px;
+      box-shadow:var(--shadow);
+      display:none;
+      max-width:min(720px, calc(100% - 24px));
+      font-size:13px;
+      backdrop-filter: blur(10px);
+      z-index:9999;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="h-title">
+        <h1>파워볼(동행) 빈도 기반 추천기</h1>
+        <p>
+          “순수 랜덤” 없이, <b>역대 당첨번호 빈도</b>를 집계해 <b>고·중·저 빈도</b>를 섞어서 조합을 추천해줘.<br/>
+          (일반볼 1~28에서 5개 + 파워볼 0~9에서 1개)
+        </p>
+      </div>
+      <div class="pillbar">
+        <div class="pill"><span class="dot good"></span><span id="p-status">데이터 확인 중…</span></div>
+        <div class="pill"><span class="dot warn"></span><span id="p-updated">업데이트: -</span></div>
+        <div class="pill"><span class="dot bad"></span><a href="https://www.dhlottery.co.kr/srfllt/pbGmInfo" target="_blank" rel="noopener">공식 안내 링크</a></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- 추천 -->
+      <section class="card">
+        <div class="hd">
+          <div>
+            <div class="ttl">추천 번호</div>
+            <div class="sub">1개 / 5개 / 10개 + “같은 데이터에서 다음 조합(사이클 회전)”</div>
+          </div>
+          <div class="badge">공유 링크 지원</div>
+        </div>
+        <div class="bd">
+          <div class="row" style="margin-bottom:10px">
+            <div class="kpi">
+              <div class="k">추천 개수</div>
+              <div class="v"><span id="k-count">5</span>개</div>
+            </div>
+            <div class="kpi">
+              <div class="k">사이클(회전)</div>
+              <div class="v">#<span id="k-cycle">0</span></div>
+            </div>
+            <div class="kpi">
+              <div class="k">추천 룰</div>
+              <div class="v">상/중/하 빈도 혼합</div>
+            </div>
+          </div>
+
+          <div class="sets" id="sets"></div>
+
+          <div class="foot">
+            ※ 주의: 과거 빈도는 미래 당첨을 보장하지 않아. 그래도 “데이터 기반으로 고르게 섞는 추천”으로만 사용해줘.
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="btnrow">
+            <button class="primary" data-n="1">번호 1개 추천</button>
+            <button class="primary" data-n="5">번호 5개 추천</button>
+            <button class="primary" data-n="10">번호 10개 추천</button>
+          </div>
+          <div class="btnrow">
+            <button id="btn-next" title="랜덤이 아니라, 같은 데이터에서 다음 조합으로 회전해 보여줘">같은 데이터로 다음 조합</button>
+            <button id="btn-copy" class="ghost" title="현재 추천 결과를 링크로 공유">공유 링크 복사</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 통계 -->
+      <aside class="card">
+        <div class="hd">
+          <div>
+            <div class="ttl">빈도 TOP</div>
+            <div class="sub">현재 데이터에서 많이 나온 숫자</div>
+          </div>
+          <div class="badge">가볍게 참고</div>
+        </div>
+        <div class="bd">
+          <div class="row">
+            <div class="kpi" style="min-width:unset;flex:1">
+              <div class="k">총 기록(드로우)</div>
+              <div class="v" id="s-draws">-</div>
+            </div>
+            <div class="kpi" style="min-width:unset;flex:1">
+              <div class="k">집계 기준</div>
+              <div class="v">최근 데이터 전체</div>
+            </div>
+          </div>
+
+          <div class="list" id="top-normal"></div>
+          <div style="height:10px"></div>
+          <div class="list" id="top-power"></div>
+
+          <div class="foot">
+            색상 가이드(일반볼): 1~7(노랑) / 8~14(파랑) / 15~21(빨강) / 22~28(초록), 파워볼(보라)
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const DATA_FREQ = "data/powerball_freq.json";
+  const DATA_DRAWS = "data/powerball_draws.json";
+
+  const $ = (q) => document.querySelector(q);
+
+  function toast(msg){
+    const t = $("#toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> t.style.display="none", 2200);
+  }
+
+  function ballClassNormal(n){
+    if(n<=7) return "b1";
+    if(n<=14) return "b2";
+    if(n<=21) return "b3";
+    return "b4";
+  }
+
+  function fmtISO(iso){
+    if(!iso) return "-";
+    try{
+      const d = new Date(iso);
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,"0");
+      const day=String(d.getDate()).padStart(2,"0");
+      const hh=String(d.getHours()).padStart(2,"0");
+      const mm=String(d.getMinutes()).padStart(2,"0");
+      return `${y}-${m}-${day} ${hh}:${mm}`;
+    }catch(e){ return iso; }
+  }
+
+  function stableHash(str){
+    // 간단 해시(결정적, 랜덤 아님)
+    let h = 2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h>>>0);
+  }
+
+  function pickDeterministic(arr, idxStart, count){
+    const out = [];
+    let k = idxStart;
+    let guard = 0;
+    while(out.length < count && guard < arr.length*3){
+      const v = arr[k % arr.length];
+      if(!out.includes(v)) out.push(v);
+      k += 1;
+      guard++;
+    }
+    return out;
+  }
+
+  function buildRecommendations(freq, nSets, cycle){
+    const normalFreq = freq?.normal?.freq || {};
+    const powerFreq = freq?.power?.freq || {};
+
+    const normalNums = Array.from({length: 28}, (_,i)=> i+1);
+    const powerNums = Array.from({length: 10}, (_,i)=> i);
+
+    const normalSorted = normalNums.sort((a,b)=>{
+      const fa = normalFreq[a]||0;
+      const fb = normalFreq[b]||0;
+      if(fb!==fa) return fb-fa;
+      return a-b;
+    });
+    const powerSorted = powerNums.sort((a,b)=>{
+      const fa = powerFreq[a]||0;
+      const fb = powerFreq[b]||0;
+      if(fb!==fa) return fb-fa;
+      return a-b;
+    });
+
+    // 상/중/하 버킷(빈도 순 기준)
+    const high = normalSorted.slice(0, 10);
+    const mid  = normalSorted.slice(10, 20);
+    const low  = normalSorted.slice(20);
+
+    // 시드: 마지막 업데이트 + cycle로 “회전”
+    const seedBase = `${freq?.meta?.updated_at||"0"}|${freq?.meta?.draws||0}|${cycle}`;
+    const seed = stableHash(seedBase);
+
+    const sets = [];
+    for(let i=0;i<nSets;i++){
+      const a = pickDeterministic(high, (seed + i*7) % Math.max(1,high.length), 2);
+      const b = pickDeterministic(mid,  (seed + i*11) % Math.max(1,mid.length), 2);
+      const c = pickDeterministic(low,  (seed + i*13) % Math.max(1,low.length), 1);
+
+      // 합쳐서 5개 보장(중복 방지 보정)
+      let normals = [...a, ...b, ...c];
+      let j = 0;
+      while(new Set(normals).size < 5 && j < 50){
+        // 중복 있으면 low에서 한 칸씩 이동해서 채움
+        const extra = low[(seed + i*13 + j) % Math.max(1,low.length)];
+        normals = Array.from(new Set([...normals, extra]));
+        j++;
+      }
+      normals = normals.slice(0,5).sort((x,y)=>x-y);
+
+      const pb = powerSorted[(seed + i*5) % powerSorted.length];
+
+      sets.push({
+        normals,
+        power: pb,
+        rule: "상(2)+중(2)+하(1) 혼합"
+      });
+    }
+    return sets;
+  }
+
+  function renderSets(sets){
+    const root = $("#sets");
+    root.innerHTML = "";
+    sets.forEach((s, idx)=>{
+      const el = document.createElement("div");
+      el.className = "set";
+      const normalsHtml = s.normals.map(n=>`<div class="ball ${ballClassNormal(n)}">${n}</div>`).join("");
+      el.innerHTML = `
+        <div class="top">
+          <div class="label">추천 #${idx+1}</div>
+          <div class="meta">${s.rule}</div>
+        </div>
+        <div class="balls">
+          ${normalsHtml}
+          <div class="sep" title="+"></div>
+          <div class="ball pb" title="파워볼">${s.power}</div>
+        </div>
+      `;
+      root.appendChild(el);
+    });
+  }
+
+  function renderTop(freq){
+    const normalFreq = freq?.normal?.freq || {};
+    const powerFreq = freq?.power?.freq || {};
+
+    const normalNums = Array.from({length: 28}, (_,i)=> i+1)
+      .map(n=>({n, f: normalFreq[n]||0}))
+      .sort((a,b)=> b.f-a.f || a.n-b.n)
+      .slice(0, 10);
+
+    const powerNums = Array.from({length: 10}, (_,i)=> i)
+      .map(n=>({n, f: powerFreq[n]||0}))
+      .sort((a,b)=> b.f-a.f || a.n-b.n)
+      .slice(0, 5);
+
+    const tn = $("#top-normal");
+    tn.innerHTML = `<div class="item"><b>일반볼 TOP10</b><span class="badge">빈도</span></div>` +
+      normalNums.map(x=>`
+        <div class="item">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="ball ${ballClassNormal(x.n)}" style="width:34px;height:34px;font-size:13px">${x.n}</div>
+            <div>자주 나온 번호</div>
+          </div>
+          <span class="badge">${x.f}</span>
+        </div>
+      `).join("");
+
+    const tp = $("#top-power");
+    tp.innerHTML = `<div class="item"><b>파워볼 TOP5</b><span class="badge">빈도</span></div>` +
+      powerNums.map(x=>`
+        <div class="item">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="ball pb" style="width:34px;height:34px;font-size:13px">${x.n}</div>
+            <div>자주 나온 파워볼</div>
+          </div>
+          <span class="badge">${x.f}</span>
+        </div>
+      `).join("");
+  }
+
+  function updateUrl(count, cycle){
+    const u = new URL(location.href);
+    u.searchParams.set("n", String(count));
+    u.searchParams.set("c", String(cycle));
+    history.replaceState(null, "", u.toString());
+  }
+
+  async function loadJson(url){
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  async function main(){
+    const qs = new URLSearchParams(location.search);
+    const savedCycle = Number(localStorage.getItem("pb_cycle")||"0");
+    let count = Number(qs.get("n") || "5");
+    let cycle = Number(qs.get("c") || String(savedCycle));
+
+    if(![1,5,10].includes(count)) count = 5;
+    if(!Number.isFinite(cycle) || cycle<0) cycle = 0;
+
+    $("#k-count").textContent = String(count);
+    $("#k-cycle").textContent = String(cycle);
+
+    let freq = null;
+    let draws = null;
+
+    try{
+      [freq, draws] = await Promise.all([
+        loadJson(DATA_FREQ),
+        loadJson(DATA_DRAWS)
+      ]);
+
+      $("#p-status").textContent = "데이터 로드 완료";
+      $("#p-updated").textContent = `업데이트: ${fmtISO(freq?.meta?.updated_at)}`;
+      $("#s-draws").textContent = String(freq?.meta?.draws ?? "-");
+
+      renderTop(freq);
+
+      const sets = buildRecommendations(freq, count, cycle);
+      renderSets(sets);
+
+      updateUrl(count, cycle);
+      localStorage.setItem("pb_cycle", String(cycle));
+    }catch(e){
+      $("#p-status").textContent = "데이터 없음(업데이트 필요)";
+      $("#p-updated").textContent = "업데이트: -";
+      $("#s-draws").textContent = "-";
+      $("#top-normal").innerHTML = `
+        <div class="item"><b>데이터 파일이 비어있거나 없음</b><span class="badge">power-c/data/*</span></div>
+        <div class="item" style="color:var(--muted);line-height:1.4">
+          GitHub Actions로 데이터 수집을 먼저 실행해야 추천이 동작해.<br/>
+          아래 워크플로우(update-powerball.yml / issue 트리거)를 추가해두면 자동으로 채워져.
+        </div>
+      `;
+      $("#top-power").innerHTML = "";
+      $("#sets").innerHTML = `
+        <div class="set">
+          <div class="top">
+            <div class="label">추천을 표시할 수 없음</div>
+            <div class="meta">data/powerball_freq.json 필요</div>
+          </div>
+          <div class="small">Actions로 데이터를 채운 뒤 새로고침해줘.</div>
+        </div>
+      `;
+      console.warn(e);
+    }
+
+    // 버튼 핸들러
+    document.querySelectorAll("button[data-n]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const n = Number(btn.getAttribute("data-n"));
+        if(![1,5,10].includes(n)) return;
+        $("#k-count").textContent = String(n);
+        count = n;
+
+        try{
+          if(!freq) freq = await loadJson(DATA_FREQ);
+          const sets = buildRecommendations(freq, count, cycle);
+          renderSets(sets);
+          updateUrl(count, cycle);
+          toast(`${count}개 추천으로 변경`);
+        }catch(e){
+          toast("데이터가 없어. Actions 업데이트가 필요해.");
+        }
+      });
+    });
+
+    $("#btn-next").addEventListener("click", async ()=>{
+      cycle += 1;
+      $("#k-cycle").textContent = String(cycle);
+      localStorage.setItem("pb_cycle", String(cycle));
+      updateUrl(count, cycle);
+
+      try{
+        if(!freq) freq = await loadJson(DATA_FREQ);
+        const sets = buildRecommendations(freq, count, cycle);
+        renderSets(sets);
+        toast("같은 데이터로 다음 조합");
+      }catch(e){
+        toast("데이터가 없어. Actions 업데이트가 필요해.");
+      }
+    });
+
+    $("#btn-copy").addEventListener("click", async ()=>{
+      try{
+        await navigator.clipboard.writeText(location.href);
+        toast("공유 링크 복사 완료");
+      }catch(e){
+        toast("복사 실패(브라우저 권한 확인)");
+      }
+    });
+  }
+
+  main();
+</script>
+</body>
+</html>
