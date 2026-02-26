@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "source": "https://www.dhlottery.co.kr/srfllt/PbWnNoInq",
+    "game": "dhlottery-powerball",
+    "draws": 0,
+    "updated_at": null
+  },
+  "normal": {
+    "range": [1, 28],
+    "freq": {}
+  },
+  "power": {
+    "range": [0, 9],
+    "freq": {}
+  }
+}
